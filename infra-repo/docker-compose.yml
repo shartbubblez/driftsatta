@@ -12,7 +12,16 @@ services:
   loadbalancer:
     build: ./loadbalancer
     container_name: loadbalancer
-    # TODO: Lägg till ports, cap_add, sysctls, networks
+    ports:
+     - "80:80"
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    networks:
+      frontend:
+        ipv4_address: 172.20.0.10
+    # TODO: Lägg till ports, cap_add, sysctls, networks                        CHECK  
     depends_on:
       - app1
       - app2
@@ -32,17 +41,43 @@ services:
   app1:
     build: ../app-repo/app
     container_name: app1
-    # TODO: Lägg till environment, networks, depends_on
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: app_user
+      DB_PASSWORD: kabelkramarna123
+      DB_NAME: app_db
+    networks:
+      frontend:
+        ipv4_address: 172.20.0.11
+      backend: {}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    # TODO: Lägg till environment, networks, depends_on                           CHECK
 
   app2:
     build: ../app-repo/app
     container_name: app2
-    # TODO: Lägg till environment, networks, depends_on
+    environment:
+      DB_HOST: mariadb
+      DP_PORT: 3306
+      DB_USER: app_user
+      DB_PASSWORD: kabelkramarna123
+      DB_NAME: app_db
+    networks:
+      frontend:
+        ipv4_address: 172.20.0.12
+      backend: {}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    # TODO: Lägg till environment, networks, depends_on                          CHECK
 
   # =============================================================
   # DATABAS
   # =============================================================
-  # TODO: Konfigurera MariaDB
+  # TODO: Konfigurera MariaDB                                                    CHECK     
   # - Använd image mariadb:10
   # - Sätt MYSQL_ROOT_PASSWORD och MYSQL_DATABASE
   # - Montera init.sql till /docker-entrypoint-initdb.d/
@@ -53,23 +88,46 @@ services:
   mariadb:
     image: mariadb:10
     container_name: mariadb
-    # TODO: Lägg till environment, volumes, networks, healthcheck
+    environment:
+      MYSQL_ROOT_PASSWORD: kabelkramarna123
+      MYSQL_DATABASE: appdb
+    volumes:
+     - ./mariadb/init.sql:/docker-entrypoint-initdb.d/init.sql:repo
+     - mariadb_data:/var/lib/mysql
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+
+    # TODO: Lägg till environment, volumes, networks, healthcheck                   CHECK
 
 # =============================================================
 # NÄTVERK
 # =============================================================
-# TODO: Definiera två nätverk:
+# TODO: Definiera två nätverk:                                                      CHECK
 # - frontend: bridge-nätverk med IPAM-subnet 172.20.0.0/24
 # - backend: bridge-nätverk (ingen IPAM krävs)
 #
 # Tänk på: Vilka tjänster ska vara på vilka nätverk?
 # Databasen ska INTE vara nåbar från lastbalanseraren.
 # =============================================================
-# networks:
+networks:
+  backend:
+    driver: bridge
 
+  frontend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
 # =============================================================
 # VOLYMER
 # =============================================================
-# TODO: Definiera named volume för databaslagring
+# TODO: Definiera named volume för databaslagring och init.sql                      CHECK
 # =============================================================
-# volumes:
+volumes:
+  mariadb_data:
